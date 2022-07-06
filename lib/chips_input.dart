@@ -72,6 +72,8 @@ class ChipsInput<T extends Object> extends StatefulWidget {
     this.scrollController,
     this.scrollPhysics,
     this.restorationId,
+    this.elevation = 8,
+    this.borderRadius,
   })  : assert(obscuringCharacter.length == 1),
         smartDashesType = smartDashesType ??
             (obscureText ? SmartDashesType.disabled : SmartDashesType.enabled),
@@ -117,6 +119,10 @@ class ChipsInput<T extends Object> extends StatefulWidget {
                     paste: true,
                   )),
         super(key: key);
+
+  final double elevation;
+
+  final BorderRadius? borderRadius;
 
   final ChipsInputSuggestions<T> findSuggestions;
   final ChipsBuilder<T> chipBuilder;
@@ -498,6 +504,8 @@ class ChipsInputState<T extends Object> extends State<ChipsInput<T>>
       widget.focusNode ?? (_focusNode ??= FocusNode());
   bool get _isEnabled => widget.enabled ?? widget.decoration?.enabled ?? true;
 
+  late Size _textFieldSize;
+
   @override
   void initState() {
     super.initState();
@@ -604,6 +612,9 @@ class ChipsInputState<T extends Object> extends State<ChipsInput<T>>
     Widget _defaultOptionsViewBuilder(BuildContext context,
         AutocompleteOnSelected<T> onSelected, Iterable<T> options) {
       return _DefaultOptionsViewBuilder(
+        width: _textFieldSize.width,
+        borderRadius: widget.borderRadius,
+        elevation: widget.elevation,
         onSelected: onSelected,
         options: options,
         suggestionBuilder: widget.suggestionBuilder!,
@@ -626,7 +637,8 @@ class ChipsInputState<T extends Object> extends State<ChipsInput<T>>
           if (textEditingValue.text.length < _chips.length) {
             _deleteLastChips(textEditingValue.text.length);
           }
-          final options = await widget.findSuggestions(textEditingValue.text.replaceAll("$space", ""));
+          final options = await widget
+              .findSuggestions(textEditingValue.text.replaceAll("$space", ""));
           final notUsedOptions =
               options.where((r) => !_chips.contains(r)).toList(growable: false);
           return notUsedOptions;
@@ -697,9 +709,16 @@ class ChipsInputState<T extends Object> extends State<ChipsInput<T>>
               ),
             )
           ];
+
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () {
+              if (context.findRenderObject() != null) {
+                setState(() {
+                  _textFieldSize =
+                      (context.findRenderObject() as RenderBox).size;
+                });
+              }
               FocusScope.of(context).requestFocus(focusNode);
             },
             child: AnimatedBuilder(
@@ -732,6 +751,9 @@ class _DefaultOptionsViewBuilder<T extends Object> extends StatelessWidget {
     required this.onSelected,
     required this.options,
     required this.suggestionBuilder,
+    this.elevation = 8.0,
+    this.borderRadius,
+    this.width,
   }) : super(key: key);
 
   final AutocompleteOnSelected<T> onSelected;
@@ -740,26 +762,37 @@ class _DefaultOptionsViewBuilder<T extends Object> extends StatelessWidget {
 
   final SuggestionBuilder<T> suggestionBuilder;
 
+  final double elevation;
+
+  final BorderRadius? borderRadius;
+  final double? width;
+
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.topLeft,
-      child: Material(
-        elevation: 4.0,
-        child: Container(
-          height: 200.0,
-          child: ListView.builder(
-            padding: EdgeInsets.all(8.0),
-            itemCount: options.length,
-            itemBuilder: (BuildContext context, int index) {
-              final T option = options.elementAt(index);
-              return GestureDetector(
-                onTap: () {
-                  onSelected(option);
-                },
-                child: suggestionBuilder(context, option),
-              );
-            },
+      child: Theme(
+        data: ThemeData(),
+        child: Material(
+          borderRadius: borderRadius,
+          elevation: elevation,
+          clipBehavior: Clip.antiAliasWithSaveLayer,
+          child: Container(
+            width: width,
+            height: 200.0,
+            child: ListView.builder(
+              padding: EdgeInsets.all(8.0),
+              itemCount: options.length,
+              itemBuilder: (BuildContext context, int index) {
+                final T option = options.elementAt(index);
+                return GestureDetector(
+                  onTap: () {
+                    onSelected(option);
+                  },
+                  child: suggestionBuilder(context, option),
+                );
+              },
+            ),
           ),
         ),
       ),
